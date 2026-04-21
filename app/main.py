@@ -2,10 +2,13 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api.v1 import router as v1_router
@@ -51,6 +54,16 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(v1_router, prefix="/v1")
+
+    # Static playground UI at / (index.html) and /static/*
+    static_dir = Path(__file__).parent / "web" / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+        @app.get("/", include_in_schema=False)
+        async def playground() -> FileResponse:
+            return FileResponse(static_dir / "index.html")
+
     return app
 
 
