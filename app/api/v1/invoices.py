@@ -1,5 +1,7 @@
 """Invoice endpoints. Real KSeF integration lands Week 1 days 5-7."""
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +16,15 @@ from app.core.security import AuthedTenant, require_api_key, tenant_owns_nip
 from app.models import ClientNip, Invoice, InvoiceDirection, InvoiceStatus
 
 router = APIRouter()
+
+
+def _gross_total_cents(body: InvoiceCreateRequest) -> int:
+    total = Decimal("0")
+    for item in body.items:
+        net = item.quantity * item.unit_price_net
+        vat = net * (item.vat_rate / Decimal("100"))
+        total += net + vat
+    return int((total * Decimal("100")).quantize(Decimal("1")))
 
 
 @router.post("", response_model=InvoicePublic, status_code=status.HTTP_202_ACCEPTED)
@@ -40,6 +51,8 @@ async def create_invoice(
         direction=InvoiceDirection.OUTGOING,
         status=InvoiceStatus.PENDING,
         currency=body.currency,
+        gross_total_cents=_gross_total_cents(body),
+        payload=body.model_dump(mode="json"),
     )
     db.add(invoice)
     await db.commit()

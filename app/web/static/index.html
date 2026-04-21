@@ -1,361 +1,603 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ksef-api — playground</title>
+<title>ksef-api — panel biura rachunkowego</title>
 <style>
   :root {
-    --bg: #0b1020;
-    --panel: #131a32;
-    --border: #24304f;
-    --text: #e6ebf5;
-    --muted: #94a3b8;
-    --accent: #5b8cff;
-    --ok: #22c55e;
-    --warn: #f59e0b;
-    --err: #ef4444;
+    --bg: #f4f5f9;
+    --panel: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --accent: #2563eb;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --err: #dc2626;
+    --ksef: #1e40af;
     --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
+  body { margin: 0; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  a { color: var(--accent); }
+
   header {
-    padding: 16px 24px;
+    background: white;
     border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    background: rgba(11, 16, 32, 0.9);
-    backdrop-filter: blur(8px);
-    z-index: 10;
-  }
-  header h1 { font-size: 16px; margin: 0; letter-spacing: 0.2px; }
-  header .badge { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #1e293b; color: var(--muted); }
-  main {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 20px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 16px;
+    position: sticky; top: 0; z-index: 10;
   }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .panel h2 {
-    font-size: 13px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 0 0 12px;
-    letter-spacing: 0.5px;
-  }
-  .row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-  label { font-size: 12px; color: var(--muted); }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }
+  header .badge { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #e0f2fe; color: #075985; font-weight: 500; }
+  header .badge.err { background: #fee2e2; color: #991b1b; }
+  header .right { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
+  header button.tab { background: transparent; border: 0; color: var(--muted); padding: 6px 10px; border-radius: 6px; cursor: pointer; font: inherit; font-weight: 500; }
+  header button.tab.active { background: #eef2ff; color: var(--accent); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  .card { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1; min-width: 0; }
+  .row > .shrink { flex: 0; }
   input, select {
-    background: #0b1020;
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 7px 10px;
-    border-radius: 6px;
-    font: inherit;
-    min-width: 0;
-    flex: 1;
+    border: 1px solid var(--border); background: white; color: var(--ink);
+    padding: 8px 10px; border-radius: 6px; font: inherit; width: 100%;
   }
-  input:focus, select:focus { outline: 1px solid var(--accent); }
+  input:focus, select:focus { outline: 2px solid #bfdbfe; outline-offset: -1px; border-color: var(--accent); }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+
   button {
-    background: var(--accent);
-    border: 0;
-    color: white;
-    padding: 7px 14px;
-    border-radius: 6px;
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
+    background: var(--accent); color: white; border: 0; padding: 8px 14px;
+    border-radius: 6px; font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap;
   }
-  button.ghost {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
+  button.ghost { background: white; color: var(--ink); border: 1px solid var(--border); }
   button.danger { background: var(--err); }
+  button:hover:not(:disabled) { filter: brightness(1.05); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button:hover:not(:disabled) { filter: brightness(1.1); }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; color: var(--muted); background: #f8fafc; font-weight: 600; letter-spacing: 0.3px; }
+  tr:last-child td { border-bottom: 0; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover { background: #f8fafc; }
   .mono { font-family: var(--mono); font-size: 12px; }
-  .log {
-    background: #050816;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    font: 12px/1.55 var(--mono);
-    max-height: 480px;
-    overflow: auto;
-    white-space: pre;
-  }
-  .log .req { color: var(--accent); }
-  .log .ok { color: var(--ok); }
-  .log .err { color: var(--err); }
-  .log .dim { color: var(--muted); }
-  .kbd {
-    font-family: var(--mono);
-    font-size: 11px;
-    background: #0b1020;
-    border: 1px solid var(--border);
-    padding: 2px 6px;
+  .dim { color: var(--muted); }
+  .empty { padding: 40px 0; text-align: center; color: var(--muted); font-style: italic; }
+
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+  .pill.pending { background: #fef3c7; color: #92400e; }
+  .pill.submitted { background: #dbeafe; color: #1e40af; }
+  .pill.accepted { background: #dcfce7; color: #166534; }
+  .pill.rejected, .pill.error { background: #fee2e2; color: #991b1b; }
+  .pill.ok { background: #dcfce7; color: #166534; }
+  .pill.plan { background: #eef2ff; color: var(--accent); }
+
+  /* ==== FAKTURA VIEWER (Polish FA VAT layout, like KSeF PDF) ==== */
+  .faktura-wrap { background: #e2e8f0; padding: 32px 16px; border-radius: 10px; margin-bottom: 16px; }
+  .faktura {
+    max-width: 820px; margin: 0 auto; background: white; padding: 40px 44px;
+    font: 13px/1.55 "Helvetica Neue", Arial, sans-serif;
+    box-shadow: 0 6px 18px rgba(15,23,42,0.08);
     border-radius: 4px;
   }
-  .key-preview {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--ok);
-  }
-  hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
-  .hint { color: var(--muted); font-size: 12px; }
-  @media (max-width: 800px) {
-    main { grid-template-columns: 1fr; }
+  .faktura .fhead { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--ink); padding-bottom: 14px; margin-bottom: 22px; }
+  .faktura .ftitle { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; margin: 0; }
+  .faktura .fnum { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .faktura .fksef { text-align: right; font-size: 11px; }
+  .faktura .fksef .ksefbadge { display: inline-block; background: var(--ksef); color: white; padding: 4px 10px; border-radius: 6px; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; }
+  .faktura .fksef .ksefnum { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; word-break: break-all; max-width: 200px; margin-left: auto; }
+
+  .faktura .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 22px; }
+  .faktura .party h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px; font-weight: 600; }
+  .faktura .party .pname { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .faktura .party .pnip { font-family: var(--mono); font-size: 12px; }
+
+  .faktura .dates { display: flex; gap: 32px; margin-bottom: 18px; font-size: 12px; }
+  .faktura .dates .label { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; margin-bottom: 2px; }
+
+  .faktura table.items { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
+  .faktura table.items th { background: #f8fafc; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 10px; border-bottom: 2px solid var(--ink); color: var(--ink); text-align: left; font-weight: 600; }
+  .faktura table.items th.num, .faktura table.items td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .faktura table.items td { padding: 10px; border-bottom: 1px solid var(--border); }
+
+  .faktura .totals { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+  .faktura .totals table { border-collapse: collapse; min-width: 300px; }
+  .faktura .totals td { padding: 6px 12px; }
+  .faktura .totals .sum { border-top: 2px solid var(--ink); font-weight: 700; font-size: 14px; }
+  .faktura .totals .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .faktura .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .faktura .qr { width: 96px; height: 96px; background: repeating-conic-gradient(#0f172a 0 25%, white 0 50%) 50% / 8px 8px; border: 1px solid var(--border); opacity: 0.15; }
+  .faktura .qr.real { opacity: 1; }
+
+  .status-row { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; font-size: 12px; }
+
+  details.devlog { margin-top: 16px; }
+  details.devlog > summary { cursor: pointer; padding: 8px 12px; background: white; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--muted); user-select: none; }
+  details.devlog[open] > summary { border-radius: 6px 6px 0 0; }
+  .log { background: #0f172a; color: #e2e8f0; padding: 14px; font: 12px/1.5 var(--mono); border-radius: 0 0 6px 6px; border: 1px solid var(--border); border-top: 0; max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  .log .req { color: #93c5fd; }
+  .log .ok { color: #86efac; }
+  .log .err { color: #fca5a5; }
+  .log .dim { color: #94a3b8; }
+
+  .hidden { display: none !important; }
+  .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } .faktura { padding: 24px; } .faktura .parties { grid-template-columns: 1fr; } }
+  @media print {
+    body, .faktura-wrap { background: white; padding: 0; }
+    header, .no-print { display: none !important; }
+    .card { border: 0; padding: 0; }
+    .faktura { box-shadow: none; }
   }
 </style>
 </head>
 <body>
-<header>
-  <h1>ksef-api playground</h1>
-  <span class="badge" id="healthBadge">…</span>
-  <span class="hint" style="margin-left:auto">
-    Swagger UI: <a href="/docs" style="color: var(--accent)">/docs</a>
-  </span>
+
+<header class="no-print">
+  <h1>ksef-api · Panel biura rachunkowego</h1>
+  <span id="healthBadge" class="badge">…</span>
+  <div class="right">
+    <button class="tab" data-view="dashboard" onclick="showView('dashboard')">Dashboard</button>
+    <button class="tab" data-view="faktura" onclick="showView('faktura')">Faktura</button>
+    <a href="/docs" target="_blank">Swagger</a>
+    <button class="ghost" id="signoutBtn" onclick="signout()">Wyloguj</button>
+  </div>
 </header>
 
 <main>
-  <!-- connection -->
-  <section class="panel">
-    <h2>Connection</h2>
-    <div class="row">
-      <label style="flex-basis: 100%">Base URL</label>
-      <input id="baseUrl" value="" />
-    </div>
-    <div class="row">
-      <label style="flex-basis: 100%">X-API-Key (saved in localStorage)</label>
-      <input id="apiKey" placeholder="ksef_..." />
-      <button class="ghost" onclick="clearKey()">Clear</button>
-    </div>
-    <div class="hint" id="keyPreview"></div>
-  </section>
 
-  <!-- signup -->
-  <section class="panel">
-    <h2>1 · Signup biuro (public)</h2>
-    <div class="row grid2">
-      <input id="suEmail" placeholder="email" value="biuro@test.pl" />
-      <input id="suPassword" placeholder="password (≥8 chars)" value="secret12345" />
+  <!-- AUTH (shown when no key) -->
+  <div id="authView" class="card hidden">
+    <h2>Rejestracja biura</h2>
+    <div class="row" style="margin-bottom: 10px">
+      <div style="flex:1"><label>Email</label><input id="suEmail" value="biuro@test.pl"></div>
+      <div style="flex:1"><label>Hasło (min. 8 znaków)</label><input id="suPassword" value="secret12345"></div>
     </div>
     <div class="row">
-      <input id="suCompany" placeholder="company name" value="Testowe Biuro" />
-      <button onclick="signup()">POST /v1/tenants/signup</button>
+      <div style="flex:1"><label>Nazwa biura</label><input id="suCompany" value="Testowe Biuro"></div>
+      <div class="shrink" style="align-self: flex-end"><button onclick="signup()">Zarejestruj i dostań klucz API</button></div>
     </div>
-    <div class="hint">The response <b>key</b> is auto-stored as your API key.</div>
-  </section>
+    <p class="dim" style="margin-top: 12px; font-size: 12px">
+      Masz już klucz? <a href="#" onclick="promptKey();return false">Wklej go ręcznie</a>.
+    </p>
+  </div>
 
-  <!-- me -->
-  <section class="panel">
-    <h2>2 · Whoami</h2>
-    <div class="row"><button onclick="me()">GET /v1/tenants/me</button></div>
-  </section>
+  <!-- DASHBOARD -->
+  <div id="dashboardView" class="hidden">
 
-  <!-- clients -->
-  <section class="panel">
-    <h2>3 · Managed clients (NIPs)</h2>
-    <div class="row">
-      <input id="cNip" placeholder="10-digit NIP" value="5252344078" maxlength="10" />
-      <input id="cName" placeholder="display name" value="Klient Testowy" />
+    <div class="two-col">
+      <div class="card">
+        <h2>Moje biuro</h2>
+        <div id="tenantInfo" class="dim">ładowanie…</div>
+      </div>
+      <div class="card">
+        <h2>Plan</h2>
+        <div id="planInfo" class="dim">ładowanie…</div>
+      </div>
     </div>
-    <div class="row">
-      <button onclick="addClient()">POST /v1/clients</button>
-      <button class="ghost" onclick="listClients()">GET /v1/clients</button>
-      <button class="danger" onclick="deleteClient()">DELETE /v1/clients/{nip}</button>
-    </div>
-  </section>
 
-  <!-- invoices -->
-  <section class="panel">
-    <h2>4 · Invoices</h2>
-    <div class="row grid2">
-      <input id="iSellerNip" placeholder="seller NIP (must be managed)" value="5252344078" />
-      <input id="iBuyerNip" placeholder="buyer NIP" value="9999999999" />
+    <div class="card">
+      <h2>Klienci (obsługiwane NIPy)</h2>
+      <div class="row" style="margin-bottom: 12px">
+        <div style="flex:1"><label>NIP (10 cyfr)</label><input id="cNip" maxlength="10" placeholder="5252344078"></div>
+        <div style="flex:2"><label>Nazwa klienta</label><input id="cName" placeholder="Klient Testowy"></div>
+        <div class="shrink" style="align-self: flex-end"><button onclick="addClient()">+ Dodaj klienta</button></div>
+      </div>
+      <table id="clientsTable">
+        <thead><tr><th>NIP</th><th>Nazwa</th><th>Status KSeF</th><th>Dodano</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
-    <div class="row grid2">
-      <input id="iItemName" placeholder="item name" value="Usługa księgowa" />
-      <input id="iItemPrice" type="number" placeholder="net price" value="500" />
-    </div>
-    <div class="row">
-      <button onclick="createInvoice()">POST /v1/invoices</button>
-      <button class="ghost" onclick="listInvoices()">GET /v1/invoices</button>
-    </div>
-    <div class="hint">
-      Invoice stays <span class="kbd">pending</span> until KSeF integration lands in Week&nbsp;1 Day&nbsp;5–7.
-    </div>
-  </section>
 
-  <!-- health + response -->
-  <section class="panel" style="grid-column: 1 / -1">
-    <h2>Response log</h2>
-    <div class="row" style="margin-bottom: 8px">
-      <button class="ghost" onclick="health()">GET /v1/health</button>
-      <button class="ghost" onclick="status()">GET /v1/status</button>
-      <button class="ghost" onclick="clearLog()" style="margin-left:auto">Clear log</button>
+    <div class="card">
+      <h2>Faktury sprzedażowe</h2>
+      <div class="row" style="margin-bottom: 12px">
+        <div style="flex:1"><label>Sprzedawca (NIP)</label><select id="iSellerNip"></select></div>
+        <div style="flex:1"><label>Nabywca (NIP)</label><input id="iBuyerNip" value="9999999999" maxlength="10"></div>
+        <div style="flex:2"><label>Nabywca (nazwa)</label><input id="iBuyerName" value="Kontrahent Testowy"></div>
+      </div>
+      <div class="row" style="margin-bottom: 12px">
+        <div style="flex:2"><label>Pozycja</label><input id="iItemName" value="Usługa księgowa"></div>
+        <div style="flex:1"><label>Ilość</label><input id="iItemQty" type="number" step="1" min="1" value="1"></div>
+        <div style="flex:1"><label>Cena netto (PLN)</label><input id="iItemPrice" type="number" step="0.01" min="0" value="500"></div>
+        <div style="flex:1"><label>VAT %</label>
+          <select id="iItemVat">
+            <option value="23" selected>23%</option>
+            <option value="8">8%</option>
+            <option value="5">5%</option>
+            <option value="0">0%</option>
+          </select>
+        </div>
+        <div class="shrink" style="align-self: flex-end"><button onclick="createInvoice()">+ Wystaw fakturę</button></div>
+      </div>
+      <table id="invoicesTable">
+        <thead><tr><th>Numer KSeF</th><th>Sprzedawca</th><th>Nabywca</th><th>Kwota brutto</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
+  </div>
+
+  <!-- FAKTURA view -->
+  <div id="fakturaView" class="hidden">
+    <div class="no-print row" style="max-width: 820px; margin: 0 auto 14px; align-items: stretch">
+      <button class="ghost shrink" onclick="showView('dashboard')">← Powrót</button>
+      <div style="flex:1"></div>
+      <button class="ghost shrink" onclick="window.print()">🖨 Drukuj</button>
+    </div>
+    <div id="fakturaBody" class="faktura-wrap"></div>
+  </div>
+
+  <details class="devlog no-print">
+    <summary>Dziennik API (dla programistów)</summary>
     <div class="log" id="log"></div>
-  </section>
+  </details>
+
 </main>
 
 <script>
-  const logEl = document.getElementById("log");
-  const keyEl = document.getElementById("apiKey");
-  const baseEl = document.getElementById("baseUrl");
-  const keyPrev = document.getElementById("keyPreview");
+  // ---------- state ----------
+  const S = {
+    base: localStorage.getItem("ksef_base") || location.origin,
+    key: localStorage.getItem("ksef_key") || "",
+    tenant: null,
+    clients: [],
+    invoices: [],
+    currentInvoice: null,
+  };
+  const PLAN_LIMITS = { start: 1, solo: 5, biuro: 50, biuro_pro: 200, custom: 10000 };
 
-  baseEl.value = localStorage.getItem("ksef_base") || window.location.origin;
-  keyEl.value = localStorage.getItem("ksef_key") || "";
-  updateKeyPreview();
+  // ---------- utils ----------
+  const $ = (id) => document.getElementById(id);
+  const fmtPln = (cents) => cents == null ? "—" : (cents / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
+  const fmtNum = (n) => Number(n).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString("pl-PL") : "";
+  const fmtDT = (iso) => iso ? new Date(iso).toLocaleString("pl-PL") : "";
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
-  baseEl.addEventListener("change", () => localStorage.setItem("ksef_base", baseEl.value));
-  keyEl.addEventListener("change", () => {
-    localStorage.setItem("ksef_key", keyEl.value);
-    updateKeyPreview();
-  });
-
-  function updateKeyPreview() {
-    const k = keyEl.value;
-    keyPrev.innerHTML = k ? `<span class="key-preview">${k.slice(0,12)}…</span> (${k.length} chars)` : `<span class="dim">no key set</span>`;
-  }
-
-  function clearKey() {
-    keyEl.value = "";
-    localStorage.removeItem("ksef_key");
-    updateKeyPreview();
-  }
-
-  function clearLog() { logEl.textContent = ""; }
-
-  function log(line, cls = "") {
-    const span = document.createElement("span");
-    span.className = cls;
-    span.textContent = line + "\n";
-    logEl.appendChild(span);
-    logEl.scrollTop = logEl.scrollHeight;
+  function logLine(line, cls = "") {
+    const span = document.createElement("span"); span.className = cls; span.textContent = line + "\n";
+    $("log").appendChild(span); $("log").scrollTop = $("log").scrollHeight;
   }
 
   async function call(method, path, body) {
-    const base = baseEl.value.replace(/\/$/, "");
     const headers = { "Content-Type": "application/json" };
-    if (keyEl.value) headers["X-API-Key"] = keyEl.value;
-    log(`→ ${method} ${path}`, "req");
+    if (S.key) headers["X-API-Key"] = S.key;
+    logLine(`→ ${method} ${path}`, "req");
     try {
-      const resp = await fetch(base + path, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const text = await resp.text();
-      let pretty = text;
-      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch {}
-      const cls = resp.ok ? "ok" : "err";
-      log(`← ${resp.status} ${resp.statusText}`, cls);
-      log(pretty, "dim");
-      log("");
-      return { status: resp.status, ok: resp.ok, body: pretty };
+      const r = await fetch(S.base.replace(/\/$/, "") + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+      const text = await r.text();
+      let j; try { j = JSON.parse(text); } catch { j = null; }
+      logLine(`← ${r.status} ${r.statusText}`, r.ok ? "ok" : "err");
+      if (j) logLine(JSON.stringify(j, null, 2), "dim");
+      logLine("");
+      return { status: r.status, ok: r.ok, json: j, text };
     } catch (e) {
-      log(`✗ network error: ${e.message}`, "err");
-      return { status: 0, ok: false, body: e.message };
+      logLine(`✗ ${e.message}`, "err"); return { status: 0, ok: false, json: null, text: e.message };
     }
   }
 
-  // --- actions ---
-  async function health()  { await call("GET", "/v1/health"); pollHealth(); }
-  async function status()  { await call("GET", "/v1/status"); }
-  async function me()      { await call("GET", "/v1/tenants/me"); }
+  // ---------- views ----------
+  function showView(name) {
+    ["authView", "dashboardView", "fakturaView"].forEach(v => $(v).classList.add("hidden"));
+    document.querySelectorAll("header .tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
+    if (!S.key) { $("authView").classList.remove("hidden"); return; }
+    if (name === "dashboard") $("dashboardView").classList.remove("hidden");
+    else if (name === "faktura") $("fakturaView").classList.remove("hidden");
+    else $("dashboardView").classList.remove("hidden");
+  }
 
+  function updateSignoutVisibility() { $("signoutBtn").classList.toggle("hidden", !S.key); }
+
+  function signout() {
+    S.key = ""; localStorage.removeItem("ksef_key"); S.tenant = null; S.clients = []; S.invoices = [];
+    updateSignoutVisibility(); showView("auth");
+  }
+
+  function promptKey() {
+    const k = prompt("Wklej klucz API:");
+    if (k) { S.key = k; localStorage.setItem("ksef_key", k); updateSignoutVisibility(); refresh(); }
+  }
+
+  // ---------- actions ----------
   async function signup() {
-    const body = {
-      email: document.getElementById("suEmail").value,
-      password: document.getElementById("suPassword").value,
-      company_name: document.getElementById("suCompany").value || null,
-    };
-    const r = await call("POST", "/v1/tenants/signup", body);
-    try {
-      const j = JSON.parse(r.body);
-      if (j.key) {
-        keyEl.value = j.key;
-        localStorage.setItem("ksef_key", j.key);
-        updateKeyPreview();
-        log(`✓ API key saved for future calls`, "ok");
-      }
-    } catch {}
+    const r = await call("POST", "/v1/tenants/signup", {
+      email: $("suEmail").value, password: $("suPassword").value, company_name: $("suCompany").value || null
+    });
+    if (r.ok && r.json?.key) {
+      S.key = r.json.key; localStorage.setItem("ksef_key", r.json.key);
+      updateSignoutVisibility(); refresh();
+    } else if (r.status === 409) {
+      alert("Email już zarejestrowany — użyj innego lub wklej istniejący klucz.");
+    }
+  }
+
+  async function loadTenant() {
+    const r = await call("GET", "/v1/tenants/me");
+    if (!r.ok) { if (r.status === 401) signout(); return; }
+    S.tenant = r.json;
+    renderTenant();
+  }
+
+  async function loadClients() {
+    const r = await call("GET", "/v1/clients");
+    if (!r.ok) return;
+    S.clients = r.json || [];
+    renderClients(); renderSellerSelect();
+  }
+
+  async function loadInvoices() {
+    const r = await call("GET", "/v1/invoices");
+    if (!r.ok) return;
+    S.invoices = (r.json && r.json.items) || [];
+    renderInvoices();
   }
 
   async function addClient() {
-    await call("POST", "/v1/clients", {
-      nip: document.getElementById("cNip").value,
-      display_name: document.getElementById("cName").value || null,
-    });
+    const nip = $("cNip").value.trim(), name = $("cName").value.trim();
+    if (!/^\d{10}$/.test(nip)) { alert("NIP musi mieć 10 cyfr."); return; }
+    const r = await call("POST", "/v1/clients", { nip, display_name: name || null });
+    if (r.ok) { $("cNip").value = ""; $("cName").value = ""; await loadClients(); }
+    else if (r.status === 402) alert("Limit planu — zmień plan, aby dodać więcej klientów.");
+    else if (r.status === 409) alert("Ten NIP jest już dodany.");
   }
 
-  async function listClients() { await call("GET", "/v1/clients"); }
-
-  async function deleteClient() {
-    const nip = document.getElementById("cNip").value;
-    if (!confirm(`Delete client NIP ${nip}?`)) return;
+  async function deleteClient(nip) {
+    if (!confirm(`Usunąć klienta ${nip}?`)) return;
     await call("DELETE", `/v1/clients/${nip}`);
+    await loadClients();
   }
 
   async function createInvoice() {
+    const seller = $("iSellerNip").value;
+    if (!seller) { alert("Najpierw dodaj przynajmniej jednego klienta."); return; }
     const body = {
-      seller_nip: document.getElementById("iSellerNip").value,
-      buyer: {
-        nip: document.getElementById("iBuyerNip").value,
-        name: "Kontrahent Testowy",
-      },
+      seller_nip: seller,
+      buyer: { nip: $("iBuyerNip").value, name: $("iBuyerName").value || null },
       items: [{
-        name: document.getElementById("iItemName").value,
-        quantity: 1,
-        unit_price_net: Number(document.getElementById("iItemPrice").value),
-        vat_rate: 23,
+        name: $("iItemName").value,
+        quantity: Number($("iItemQty").value) || 1,
+        unit_price_net: Number($("iItemPrice").value) || 0,
+        vat_rate: Number($("iItemVat").value),
       }],
       issue_date: new Date().toISOString(),
       currency: "PLN",
     };
-    await call("POST", "/v1/invoices", body);
+    const r = await call("POST", "/v1/invoices", body);
+    if (r.ok) { await loadInvoices(); openInvoice(r.json); }
   }
 
-  async function listInvoices() { await call("GET", "/v1/invoices"); }
+  // ---------- render ----------
+  function renderTenant() {
+    if (!S.tenant) return;
+    $("tenantInfo").innerHTML = `
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 2px">${esc(S.tenant.company_name || "(bez nazwy)")}</div>
+      <div class="dim">${esc(S.tenant.email)}</div>
+      <div style="margin-top: 8px"><span class="pill ${S.tenant.is_active ? "ok" : "error"}">${S.tenant.is_active ? "Aktywne" : "Nieaktywne"}</span></div>
+    `;
+    const limit = PLAN_LIMITS[S.tenant.plan] || 1;
+    const used = S.clients.length;
+    $("planInfo").innerHTML = `
+      <div style="font-size: 20px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px">
+        <span class="pill plan">${esc(S.tenant.plan)}</span>
+      </div>
+      <div class="dim" style="margin-top: 10px">Wykorzystanie: <b>${used} / ${limit}</b> NIP-ów</div>
+      <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;overflow:hidden">
+        <div style="height:100%;background:var(--accent);width:${Math.min(100, used/limit*100)}%"></div>
+      </div>
+    `;
+  }
 
-  // health badge
-  async function pollHealth() {
-    const badge = document.getElementById("healthBadge");
-    try {
-      const r = await fetch(baseEl.value + "/v1/health");
-      if (r.ok) {
-        const j = await r.json();
-        badge.textContent = `● ${j.status} • v${j.version}`;
-        badge.style.color = "var(--ok)";
-      } else throw 0;
-    } catch {
-      badge.textContent = "● offline";
-      badge.style.color = "var(--err)";
+  function renderClients() {
+    const tbody = $("clientsTable").querySelector("tbody");
+    if (!S.clients.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty">Brak klientów. Dodaj pierwszy NIP powyżej.</td></tr>`;
+      return;
     }
+    tbody.innerHTML = S.clients.map(c => `
+      <tr>
+        <td class="mono">${esc(c.nip)}</td>
+        <td>${esc(c.display_name || "—")}</td>
+        <td><span class="pill ${c.ksef_status === "connected" ? "ok" : c.ksef_status === "error" ? "error" : "pending"}">${esc(c.ksef_status)}</span></td>
+        <td class="dim">${fmtDate(c.created_at)}</td>
+        <td style="text-align:right"><button class="ghost" onclick="deleteClient('${esc(c.nip)}')">Usuń</button></td>
+      </tr>`).join("");
   }
+
+  function renderSellerSelect() {
+    const sel = $("iSellerNip");
+    sel.innerHTML = S.clients.length
+      ? S.clients.map(c => `<option value="${esc(c.nip)}">${esc(c.display_name || c.nip)} (${esc(c.nip)})</option>`).join("")
+      : `<option value="">— brak klientów —</option>`;
+  }
+
+  function renderInvoices() {
+    const tbody = $("invoicesTable").querySelector("tbody");
+    if (!S.invoices.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Brak faktur. Wystaw pierwszą powyżej.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = S.invoices.map(inv => {
+      const seller = inv.payload?.seller_nip || "—";
+      const buyer = inv.payload?.buyer?.name || inv.payload?.buyer?.nip || "—";
+      return `
+        <tr class="clickable" onclick='openInvoice(${JSON.stringify(inv).replace(/'/g, "&#39;")})'>
+          <td class="mono">${inv.ksef_number ? esc(inv.ksef_number) : '<span class="dim">(oczekuje)</span>'}</td>
+          <td class="mono">${esc(seller)}</td>
+          <td>${esc(buyer)}</td>
+          <td style="text-align:right">${fmtPln(inv.gross_total_cents)}</td>
+          <td><span class="pill ${inv.status}">${esc(inv.status)}</span></td>
+          <td class="dim">${fmtDT(inv.created_at)}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  // ---------- faktura viewer ----------
+  function openInvoice(inv) {
+    S.currentInvoice = inv;
+    $("fakturaBody").innerHTML = renderFaktura(inv);
+    showView("faktura");
+  }
+
+  function renderFaktura(inv) {
+    const p = inv.payload || {};
+    const items = p.items || [];
+    const seller = p.seller_nip || "";
+    const buyer = p.buyer || {};
+    const issueDate = p.issue_date ? fmtDate(p.issue_date) : fmtDate(inv.created_at);
+    const number = inv.ksef_number || inv.reference_number || `WEWN/${(inv.id||"").slice(0,8).toUpperCase()}`;
+
+    let totalNet = 0, totalVat = 0;
+    const vatGroups = {};
+    const rows = items.map((it, i) => {
+      const qty = Number(it.quantity || 0);
+      const unit = Number(it.unit_price_net || 0);
+      const net = qty * unit;
+      const vatR = Number(it.vat_rate || 0);
+      const vat = net * (vatR / 100);
+      const gross = net + vat;
+      totalNet += net; totalVat += vat;
+      vatGroups[vatR] = vatGroups[vatR] || { net: 0, vat: 0 };
+      vatGroups[vatR].net += net; vatGroups[vatR].vat += vat;
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${esc(it.name)}</td>
+        <td class="num">${fmtNum(qty)}</td>
+        <td class="num">${fmtNum(unit)}</td>
+        <td class="num">${fmtNum(net)}</td>
+        <td class="num">${vatR}%</td>
+        <td class="num">${fmtNum(vat)}</td>
+        <td class="num"><b>${fmtNum(gross)}</b></td>
+      </tr>`;
+    }).join("");
+
+    const vatBreakdown = Object.entries(vatGroups).map(([r, v]) => `
+      <tr>
+        <td>VAT ${r}%</td>
+        <td class="num">${fmtNum(v.net)}</td>
+        <td class="num">${fmtNum(v.vat)}</td>
+        <td class="num">${fmtNum(v.net + v.vat)}</td>
+      </tr>`).join("");
+
+    const total = totalNet + totalVat;
+    const accepted = inv.status === "accepted";
+
+    return `
+    <article class="faktura">
+      <div class="fhead">
+        <div>
+          <h1 class="ftitle">FAKTURA VAT</h1>
+          <div class="fnum">Nr dokumentu: <b>${esc(number)}</b></div>
+        </div>
+        <div class="fksef">
+          <span class="ksefbadge">${accepted ? "✓ W KSEF" : `STATUS: ${inv.status.toUpperCase()}`}</span>
+          ${inv.ksef_number ? `<div class="ksefnum">${esc(inv.ksef_number)}</div>` : `<div class="ksefnum">Numer KSeF zostanie nadany po akceptacji</div>`}
+        </div>
+      </div>
+
+      <div class="parties">
+        <div class="party">
+          <h3>Sprzedawca</h3>
+          <div class="pname">${esc((S.clients.find(c => c.nip === seller) || {}).display_name || S.tenant?.company_name || "—")}</div>
+          <div class="pnip">NIP: ${esc(seller)}</div>
+        </div>
+        <div class="party">
+          <h3>Nabywca</h3>
+          <div class="pname">${esc(buyer.name || "—")}</div>
+          <div class="pnip">NIP: ${esc(buyer.nip || "—")}</div>
+        </div>
+      </div>
+
+      <div class="dates">
+        <div>
+          <div class="label">Data wystawienia</div>
+          <div><b>${esc(issueDate)}</b></div>
+        </div>
+        <div>
+          <div class="label">Data sprzedaży</div>
+          <div><b>${esc(issueDate)}</b></div>
+        </div>
+        <div>
+          <div class="label">Waluta</div>
+          <div><b>${esc(p.currency || "PLN")}</b></div>
+        </div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Lp.</th><th>Nazwa towaru/usługi</th>
+            <th class="num">Ilość</th>
+            <th class="num">Cena netto</th>
+            <th class="num">Wartość netto</th>
+            <th class="num">VAT</th>
+            <th class="num">Kwota VAT</th>
+            <th class="num">Wartość brutto</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="8" class="dim" style="text-align:center;padding:20px">Brak pozycji</td></tr>'}</tbody>
+      </table>
+
+      <div class="totals">
+        <table>
+          <tr><td colspan="4" style="padding-bottom: 6px; font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--muted)">Podsumowanie VAT</td></tr>
+          <tr style="font-size: 10px; text-transform: uppercase; color: var(--muted)">
+            <td></td><td class="num">Netto</td><td class="num">VAT</td><td class="num">Brutto</td>
+          </tr>
+          ${vatBreakdown}
+          <tr class="sum">
+            <td>RAZEM</td>
+            <td class="num">${fmtNum(totalNet)}</td>
+            <td class="num">${fmtNum(totalVat)}</td>
+            <td class="num">${fmtNum(total)} ${esc(p.currency || "PLN")}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="footer">
+        <div>
+          <div>Wystawiono automatycznie przez ksef-api. Podstawa prawna: art. 106e ustawy o VAT.</div>
+          <div style="margin-top: 4px">${accepted ? "Dokument zaakceptowany przez KSeF." : "Dokument oczekuje na przesłanie do KSeF (środowisko test)."}</div>
+        </div>
+        <div style="text-align: center">
+          <div class="qr ${accepted ? "real" : ""}"></div>
+          <div style="font-size: 10px; margin-top: 4px">kod QR KSeF</div>
+        </div>
+      </div>
+    </article>
+    `;
+  }
+
+  // ---------- lifecycle ----------
+  async function pollHealth() {
+    try {
+      const r = await fetch(S.base + "/v1/health");
+      const j = await r.json();
+      $("healthBadge").textContent = `● ${j.status} · v${j.version}`;
+      $("healthBadge").classList.remove("err");
+    } catch { $("healthBadge").textContent = "● offline"; $("healthBadge").classList.add("err"); }
+  }
+
+  async function refresh() {
+    if (!S.key) { showView("auth"); return; }
+    showView("dashboard");
+    await loadTenant();
+    await loadClients();
+    await loadInvoices();
+    renderTenant();  // re-render with loaded data (uses client count)
+  }
+
+  updateSignoutVisibility();
   pollHealth();
+  refresh();
 </script>
 </body>
 </html>

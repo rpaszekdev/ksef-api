@@ -1,9 +1,11 @@
 """Invoices tracked through the KSeF lifecycle."""
 
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Enum, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -67,3 +69,6 @@ class Invoice(UUIDPkMixin, TimestampsMixin, Base):
     # Telemetry
     gross_total_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+
+    # Full original JSON payload — seller/buyer/items — used to render the FAKTURA view
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

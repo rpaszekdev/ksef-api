@@ -89,6 +89,9 @@ class InvoicePublic(BaseModel):
     upo_reference: str | None
     error_code: str | None
     error_message: str | None
+    gross_total_cents: int | None
+    currency: str | None
+    payload: dict | None
     created_at: datetime
 
 
