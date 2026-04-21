@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ksef-api — panel biura rachunkowego</title>
+<!-- QR code generator (pure JS, ~6KB gzipped, UMD global: qrcode) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <style>
   :root {
     --bg: #f4f5f9;
@@ -13,7 +15,6 @@
     --border: #e2e8f0;
     --accent: #2563eb;
     --ok: #16a34a;
-    --warn: #d97706;
     --err: #dc2626;
     --ksef: #1e40af;
     --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -26,9 +27,7 @@
     background: white;
     border-bottom: 1px solid var(--border);
     padding: 12px 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    display: flex; align-items: center; gap: 16px;
     position: sticky; top: 0; z-index: 10;
   }
   header h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }
@@ -75,50 +74,76 @@
   .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
   .pill.pending { background: #fef3c7; color: #92400e; }
   .pill.submitted { background: #dbeafe; color: #1e40af; }
-  .pill.accepted { background: #dcfce7; color: #166534; }
+  .pill.accepted, .pill.ok { background: #dcfce7; color: #166534; }
   .pill.rejected, .pill.error { background: #fee2e2; color: #991b1b; }
-  .pill.ok { background: #dcfce7; color: #166534; }
   .pill.plan { background: #eef2ff; color: var(--accent); }
 
-  /* ==== FAKTURA VIEWER (Polish FA VAT layout, like KSeF PDF) ==== */
-  .faktura-wrap { background: #e2e8f0; padding: 32px 16px; border-radius: 10px; margin-bottom: 16px; }
-  .faktura {
-    max-width: 820px; margin: 0 auto; background: white; padding: 40px 44px;
+  details.addrbox > summary { cursor: pointer; padding: 8px 0; font-size: 12px; color: var(--muted); user-select: none; }
+
+  /* FAKTURA VAT (main invoice) */
+  .doc-wrap { background: #e2e8f0; padding: 32px 16px; border-radius: 10px; margin-bottom: 16px; }
+  .doc {
+    max-width: 820px; margin: 0 auto 24px; background: white; padding: 40px 44px;
     font: 13px/1.55 "Helvetica Neue", Arial, sans-serif;
     box-shadow: 0 6px 18px rgba(15,23,42,0.08);
     border-radius: 4px;
   }
-  .faktura .fhead { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--ink); padding-bottom: 14px; margin-bottom: 22px; }
-  .faktura .ftitle { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; margin: 0; }
-  .faktura .fnum { font-size: 13px; color: var(--muted); margin-top: 4px; }
-  .faktura .fksef { text-align: right; font-size: 11px; }
-  .faktura .fksef .ksefbadge { display: inline-block; background: var(--ksef); color: white; padding: 4px 10px; border-radius: 6px; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; }
-  .faktura .fksef .ksefnum { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; word-break: break-all; max-width: 200px; margin-left: auto; }
+  .doc .fhead { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--ink); padding-bottom: 14px; margin-bottom: 22px; }
+  .doc .ftitle { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; margin: 0; }
+  .doc .fnum { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .doc .fksef { text-align: right; font-size: 11px; }
+  .doc .fksef .ksefbadge { display: inline-block; background: var(--ksef); color: white; padding: 4px 10px; border-radius: 6px; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; }
+  .doc .fksef .ksefnum { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; word-break: break-all; max-width: 200px; margin-left: auto; }
 
-  .faktura .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 22px; }
-  .faktura .party h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px; font-weight: 600; }
-  .faktura .party .pname { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .faktura .party .pnip { font-family: var(--mono); font-size: 12px; }
+  .doc .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 22px; }
+  .doc .party h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px; font-weight: 600; }
+  .doc .party .pname { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .doc .party .pnip { font-family: var(--mono); font-size: 12px; }
+  .doc .party .paddr { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
 
-  .faktura .dates { display: flex; gap: 32px; margin-bottom: 18px; font-size: 12px; }
-  .faktura .dates .label { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .doc .dates { display: flex; gap: 32px; margin-bottom: 18px; font-size: 12px; }
+  .doc .dates .label { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; margin-bottom: 2px; }
 
-  .faktura table.items { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
-  .faktura table.items th { background: #f8fafc; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 10px; border-bottom: 2px solid var(--ink); color: var(--ink); text-align: left; font-weight: 600; }
-  .faktura table.items th.num, .faktura table.items td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .faktura table.items td { padding: 10px; border-bottom: 1px solid var(--border); }
+  .doc table.items { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
+  .doc table.items th { background: #f8fafc; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 10px; border-bottom: 2px solid var(--ink); color: var(--ink); text-align: left; font-weight: 600; }
+  .doc table.items th.num, .doc table.items td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .doc table.items td { padding: 10px; border-bottom: 1px solid var(--border); }
 
-  .faktura .totals { display: flex; justify-content: flex-end; margin-bottom: 18px; }
-  .faktura .totals table { border-collapse: collapse; min-width: 300px; }
-  .faktura .totals td { padding: 6px 12px; }
-  .faktura .totals .sum { border-top: 2px solid var(--ink); font-weight: 700; font-size: 14px; }
-  .faktura .totals .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .doc .totals { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+  .doc .totals table { border-collapse: collapse; min-width: 300px; }
+  .doc .totals td { padding: 6px 12px; }
+  .doc .totals .sum { border-top: 2px solid var(--ink); font-weight: 700; font-size: 14px; }
+  .doc .totals .num { text-align: right; font-variant-numeric: tabular-nums; }
 
-  .faktura .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
-  .faktura .qr { width: 96px; height: 96px; background: repeating-conic-gradient(#0f172a 0 25%, white 0 50%) 50% / 8px 8px; border: 1px solid var(--border); opacity: 0.15; }
-  .faktura .qr.real { opacity: 1; }
+  .doc .foot { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 
-  .status-row { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; font-size: 12px; }
+  /* POTWIERDZENIE TRANSAKCJI (KSeF confirmation slip) */
+  .potw {
+    max-width: 640px; margin: 0 auto; background: white;
+    padding: 32px 40px 24px;
+    font: 14px/1.55 "Helvetica Neue", Arial, sans-serif;
+    box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+    border-radius: 4px;
+    text-align: center;
+  }
+  .potw h2 { margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: 1.5px; }
+  .potw .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+  .potw .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; text-align: left; margin-bottom: 20px; }
+  .potw .parties h4 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
+  .potw .parties .line { font-size: 13px; line-height: 1.7; }
+  .potw .parties .line b { font-weight: 700; }
+  .potw .parties .addr-indent { padding-left: 48px; color: var(--ink); }
+  .potw .totalline { font-size: 15px; font-weight: 700; margin: 20px 0 22px; }
+  .potw .totalline .amount { font-size: 17px; }
+  .potw .qrs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+  .potw .qrs .qrlabel { font-size: 12px; margin-bottom: 8px; color: var(--ink); text-align: left; }
+  .potw .qrs .qr {
+    width: 150px; height: 150px; margin: 0 auto; padding: 8px; background: white;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .potw .qrs .qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .potw .brand { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 13px; letter-spacing: 0.3px; }
+  .potw .brand b { color: var(--ksef); font-weight: 700; }
 
   details.devlog { margin-top: 16px; }
   details.devlog > summary { cursor: pointer; padding: 8px 12px; background: white; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--muted); user-select: none; }
@@ -131,12 +156,17 @@
 
   .hidden { display: none !important; }
   .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } .faktura { padding: 24px; } .faktura .parties { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+    .doc { padding: 24px; }
+    .doc .parties, .potw .parties, .potw .qrs { grid-template-columns: 1fr; }
+  }
   @media print {
-    body, .faktura-wrap { background: white; padding: 0; }
+    body, .doc-wrap { background: white; padding: 0; }
     header, .no-print { display: none !important; }
     .card { border: 0; padding: 0; }
-    .faktura { box-shadow: none; }
+    .doc, .potw { box-shadow: none; page-break-inside: avoid; }
+    .potw { page-break-before: always; }
   }
 </style>
 </head>
@@ -155,7 +185,7 @@
 
 <main>
 
-  <!-- AUTH (shown when no key) -->
+  <!-- AUTH -->
   <div id="authView" class="card hidden">
     <h2>Rejestracja biura</h2>
     <div class="row" style="margin-bottom: 10px">
@@ -200,11 +230,31 @@
 
     <div class="card">
       <h2>Faktury sprzedażowe</h2>
-      <div class="row" style="margin-bottom: 12px">
+
+      <div class="row" style="margin-bottom: 8px">
         <div style="flex:1"><label>Sprzedawca (NIP)</label><select id="iSellerNip"></select></div>
+        <div style="flex:1"><label>Numer faktury (opcjonalny)</label><input id="iNumber" placeholder="np. FV/1/04/2026"></div>
+      </div>
+
+      <div class="row" style="margin-bottom: 8px">
         <div style="flex:1"><label>Nabywca (NIP)</label><input id="iBuyerNip" value="9999999999" maxlength="10"></div>
         <div style="flex:2"><label>Nabywca (nazwa)</label><input id="iBuyerName" value="Kontrahent Testowy"></div>
       </div>
+
+      <details class="addrbox" style="margin-bottom: 8px">
+        <summary>+ Adresy (opcjonalnie — widoczne na POTWIERDZENIU TRANSAKCJI)</summary>
+        <div class="row" style="margin-top: 8px">
+          <div style="flex:2"><label>Sprzedawca: ulica</label><input id="sStreet" placeholder="ul. Szara 5"></div>
+          <div style="flex:1"><label>Kod pocztowy</label><input id="sZip" placeholder="11-111"></div>
+          <div style="flex:1"><label>Miasto</label><input id="sCity" placeholder="Warszawa"></div>
+        </div>
+        <div class="row" style="margin-top: 8px">
+          <div style="flex:2"><label>Nabywca: ulica</label><input id="bStreet" placeholder="ul. Zielona 3"></div>
+          <div style="flex:1"><label>Kod pocztowy</label><input id="bZip" placeholder="77-777"></div>
+          <div style="flex:1"><label>Miasto</label><input id="bCity" placeholder="Katowice"></div>
+        </div>
+      </details>
+
       <div class="row" style="margin-bottom: 12px">
         <div style="flex:2"><label>Pozycja</label><input id="iItemName" value="Usługa księgowa"></div>
         <div style="flex:1"><label>Ilość</label><input id="iItemQty" type="number" step="1" min="1" value="1"></div>
@@ -219,21 +269,22 @@
         </div>
         <div class="shrink" style="align-self: flex-end"><button onclick="createInvoice()">+ Wystaw fakturę</button></div>
       </div>
+
       <table id="invoicesTable">
-        <thead><tr><th>Numer KSeF</th><th>Sprzedawca</th><th>Nabywca</th><th>Kwota brutto</th><th>Status</th><th>Data</th></tr></thead>
+        <thead><tr><th>Numer</th><th>Sprzedawca</th><th>Nabywca</th><th>Kwota brutto</th><th>Status</th><th>Data</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
   </div>
 
-  <!-- FAKTURA view -->
+  <!-- FAKTURA + POTWIERDZENIE -->
   <div id="fakturaView" class="hidden">
     <div class="no-print row" style="max-width: 820px; margin: 0 auto 14px; align-items: stretch">
       <button class="ghost shrink" onclick="showView('dashboard')">← Powrót</button>
       <div style="flex:1"></div>
       <button class="ghost shrink" onclick="window.print()">🖨 Drukuj</button>
     </div>
-    <div id="fakturaBody" class="faktura-wrap"></div>
+    <div id="docBody" class="doc-wrap"></div>
   </div>
 
   <details class="devlog no-print">
@@ -251,7 +302,6 @@
     tenant: null,
     clients: [],
     invoices: [],
-    currentInvoice: null,
   };
   const PLAN_LIMITS = { start: 1, solo: 5, biuro: 50, biuro_pro: 200, custom: 10000 };
 
@@ -283,6 +333,14 @@
     } catch (e) {
       logLine(`✗ ${e.message}`, "err"); return { status: 0, ok: false, json: null, text: e.message };
     }
+  }
+
+  // ---------- QR ----------
+  function qrDataUrl(text) {
+    const qr = qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+    return qr.createDataURL(4, 2);
   }
 
   // ---------- views ----------
@@ -323,8 +381,7 @@
   async function loadTenant() {
     const r = await call("GET", "/v1/tenants/me");
     if (!r.ok) { if (r.status === 401) signout(); return; }
-    S.tenant = r.json;
-    renderTenant();
+    S.tenant = r.json; renderTenant();
   }
 
   async function loadClients() {
@@ -359,9 +416,24 @@
   async function createInvoice() {
     const seller = $("iSellerNip").value;
     if (!seller) { alert("Najpierw dodaj przynajmniej jednego klienta."); return; }
+    const sellerClient = S.clients.find(c => c.nip === seller);
+
     const body = {
       seller_nip: seller,
-      buyer: { nip: $("iBuyerNip").value, name: $("iBuyerName").value || null },
+      seller: {
+        nip: seller,
+        name: sellerClient?.display_name || S.tenant?.company_name || null,
+        street: $("sStreet").value || null,
+        postal_code: $("sZip").value || null,
+        city: $("sCity").value || null,
+      },
+      buyer: {
+        nip: $("iBuyerNip").value,
+        name: $("iBuyerName").value || null,
+        street: $("bStreet").value || null,
+        postal_code: $("bZip").value || null,
+        city: $("bCity").value || null,
+      },
       items: [{
         name: $("iItemName").value,
         quantity: Number($("iItemQty").value) || 1,
@@ -369,6 +441,7 @@
         vat_rate: Number($("iItemVat").value),
       }],
       issue_date: new Date().toISOString(),
+      invoice_number: $("iNumber").value || null,
       currency: "PLN",
     };
     const r = await call("POST", "/v1/invoices", body);
@@ -428,9 +501,10 @@
     tbody.innerHTML = S.invoices.map(inv => {
       const seller = inv.payload?.seller_nip || "—";
       const buyer = inv.payload?.buyer?.name || inv.payload?.buyer?.nip || "—";
+      const num = inv.payload?.invoice_number || inv.ksef_number || (inv.id ? `WEWN/${inv.id.slice(0,8).toUpperCase()}` : "—");
       return `
         <tr class="clickable" onclick='openInvoice(${JSON.stringify(inv).replace(/'/g, "&#39;")})'>
-          <td class="mono">${inv.ksef_number ? esc(inv.ksef_number) : '<span class="dim">(oczekuje)</span>'}</td>
+          <td class="mono">${esc(num)}</td>
           <td class="mono">${esc(seller)}</td>
           <td>${esc(buyer)}</td>
           <td style="text-align:right">${fmtPln(inv.gross_total_cents)}</td>
@@ -440,58 +514,72 @@
     }).join("");
   }
 
-  // ---------- faktura viewer ----------
+  // ---------- docs ----------
   function openInvoice(inv) {
-    S.currentInvoice = inv;
-    $("fakturaBody").innerHTML = renderFaktura(inv);
+    $("docBody").innerHTML = renderFaktura(inv) + renderPotwierdzenie(inv);
     showView("faktura");
+  }
+
+  function invoiceTotals(items) {
+    let net = 0, vat = 0;
+    const groups = {};
+    for (const it of items) {
+      const q = Number(it.quantity || 0), u = Number(it.unit_price_net || 0), r = Number(it.vat_rate || 0);
+      const n = q * u, v = n * (r / 100);
+      net += n; vat += v;
+      groups[r] = groups[r] || { net: 0, vat: 0 };
+      groups[r].net += n; groups[r].vat += v;
+    }
+    return { net, vat, gross: net + vat, groups };
+  }
+
+  function invoiceNumber(inv) {
+    return inv.payload?.invoice_number
+      || inv.ksef_number
+      || inv.reference_number
+      || (inv.id ? `WEWN/${inv.id.slice(0, 8).toUpperCase()}` : "—");
+  }
+
+  function addressLines(p) {
+    if (!p) return [];
+    const line1 = p.street;
+    const line2 = [p.postal_code, p.city].filter(Boolean).join(" ");
+    return [line1, line2].filter(Boolean);
   }
 
   function renderFaktura(inv) {
     const p = inv.payload || {};
     const items = p.items || [];
-    const seller = p.seller_nip || "";
+    const seller = p.seller || { nip: p.seller_nip, name: (S.clients.find(c => c.nip === p.seller_nip) || {}).display_name || S.tenant?.company_name };
     const buyer = p.buyer || {};
     const issueDate = p.issue_date ? fmtDate(p.issue_date) : fmtDate(inv.created_at);
-    const number = inv.ksef_number || inv.reference_number || `WEWN/${(inv.id||"").slice(0,8).toUpperCase()}`;
+    const number = invoiceNumber(inv);
+    const { net, vat, gross, groups } = invoiceTotals(items);
+    const accepted = inv.status === "accepted";
 
-    let totalNet = 0, totalVat = 0;
-    const vatGroups = {};
     const rows = items.map((it, i) => {
-      const qty = Number(it.quantity || 0);
-      const unit = Number(it.unit_price_net || 0);
-      const net = qty * unit;
-      const vatR = Number(it.vat_rate || 0);
-      const vat = net * (vatR / 100);
-      const gross = net + vat;
-      totalNet += net; totalVat += vat;
-      vatGroups[vatR] = vatGroups[vatR] || { net: 0, vat: 0 };
-      vatGroups[vatR].net += net; vatGroups[vatR].vat += vat;
+      const qty = Number(it.quantity || 0), unit = Number(it.unit_price_net || 0);
+      const n = qty * unit, r = Number(it.vat_rate || 0), v = n * (r / 100), g = n + v;
       return `<tr>
         <td>${i + 1}</td>
         <td>${esc(it.name)}</td>
         <td class="num">${fmtNum(qty)}</td>
         <td class="num">${fmtNum(unit)}</td>
-        <td class="num">${fmtNum(net)}</td>
-        <td class="num">${vatR}%</td>
-        <td class="num">${fmtNum(vat)}</td>
-        <td class="num"><b>${fmtNum(gross)}</b></td>
+        <td class="num">${fmtNum(n)}</td>
+        <td class="num">${r}%</td>
+        <td class="num">${fmtNum(v)}</td>
+        <td class="num"><b>${fmtNum(g)}</b></td>
       </tr>`;
     }).join("");
 
-    const vatBreakdown = Object.entries(vatGroups).map(([r, v]) => `
-      <tr>
-        <td>VAT ${r}%</td>
-        <td class="num">${fmtNum(v.net)}</td>
-        <td class="num">${fmtNum(v.vat)}</td>
-        <td class="num">${fmtNum(v.net + v.vat)}</td>
-      </tr>`).join("");
+    const vatBreakdown = Object.entries(groups).map(([r, g]) => `
+      <tr><td>VAT ${r}%</td><td class="num">${fmtNum(g.net)}</td><td class="num">${fmtNum(g.vat)}</td><td class="num">${fmtNum(g.net + g.vat)}</td></tr>`).join("");
 
-    const total = totalNet + totalVat;
-    const accepted = inv.status === "accepted";
+    const sellerAddrStr = addressLines(seller).map(l => `<div>${esc(l)}</div>`).join("");
+    const buyerAddrStr = addressLines(buyer).map(l => `<div>${esc(l)}</div>`).join("");
 
     return `
-    <article class="faktura">
+    <article class="doc">
       <div class="fhead">
         <div>
           <h1 class="ftitle">FAKTURA VAT</h1>
@@ -506,41 +594,31 @@
       <div class="parties">
         <div class="party">
           <h3>Sprzedawca</h3>
-          <div class="pname">${esc((S.clients.find(c => c.nip === seller) || {}).display_name || S.tenant?.company_name || "—")}</div>
-          <div class="pnip">NIP: ${esc(seller)}</div>
+          <div class="pname">${esc(seller?.name || "—")}</div>
+          <div class="pnip">NIP: ${esc(seller?.nip || p.seller_nip || "—")}</div>
+          ${sellerAddrStr ? `<div class="paddr">${sellerAddrStr}</div>` : ""}
         </div>
         <div class="party">
           <h3>Nabywca</h3>
-          <div class="pname">${esc(buyer.name || "—")}</div>
-          <div class="pnip">NIP: ${esc(buyer.nip || "—")}</div>
+          <div class="pname">${esc(buyer?.name || "—")}</div>
+          <div class="pnip">NIP: ${esc(buyer?.nip || "—")}</div>
+          ${buyerAddrStr ? `<div class="paddr">${buyerAddrStr}</div>` : ""}
         </div>
       </div>
 
       <div class="dates">
-        <div>
-          <div class="label">Data wystawienia</div>
-          <div><b>${esc(issueDate)}</b></div>
-        </div>
-        <div>
-          <div class="label">Data sprzedaży</div>
-          <div><b>${esc(issueDate)}</b></div>
-        </div>
-        <div>
-          <div class="label">Waluta</div>
-          <div><b>${esc(p.currency || "PLN")}</b></div>
-        </div>
+        <div><div class="label">Data wystawienia</div><div><b>${esc(issueDate)}</b></div></div>
+        <div><div class="label">Data sprzedaży</div><div><b>${esc(issueDate)}</b></div></div>
+        <div><div class="label">Waluta</div><div><b>${esc(p.currency || "PLN")}</b></div></div>
       </div>
 
       <table class="items">
         <thead>
           <tr>
             <th>Lp.</th><th>Nazwa towaru/usługi</th>
-            <th class="num">Ilość</th>
-            <th class="num">Cena netto</th>
-            <th class="num">Wartość netto</th>
-            <th class="num">VAT</th>
-            <th class="num">Kwota VAT</th>
-            <th class="num">Wartość brutto</th>
+            <th class="num">Ilość</th><th class="num">Cena netto</th>
+            <th class="num">Wartość netto</th><th class="num">VAT</th>
+            <th class="num">Kwota VAT</th><th class="num">Wartość brutto</th>
           </tr>
         </thead>
         <tbody>${rows || '<tr><td colspan="8" class="dim" style="text-align:center;padding:20px">Brak pozycji</td></tr>'}</tbody>
@@ -555,25 +633,84 @@
           ${vatBreakdown}
           <tr class="sum">
             <td>RAZEM</td>
-            <td class="num">${fmtNum(totalNet)}</td>
-            <td class="num">${fmtNum(totalVat)}</td>
-            <td class="num">${fmtNum(total)} ${esc(p.currency || "PLN")}</td>
+            <td class="num">${fmtNum(net)}</td>
+            <td class="num">${fmtNum(vat)}</td>
+            <td class="num">${fmtNum(gross)} ${esc(p.currency || "PLN")}</td>
           </tr>
         </table>
       </div>
 
-      <div class="footer">
+      <div class="foot">
         <div>
           <div>Wystawiono automatycznie przez ksef-api. Podstawa prawna: art. 106e ustawy o VAT.</div>
           <div style="margin-top: 4px">${accepted ? "Dokument zaakceptowany przez KSeF." : "Dokument oczekuje na przesłanie do KSeF (środowisko test)."}</div>
         </div>
-        <div style="text-align: center">
-          <div class="qr ${accepted ? "real" : ""}"></div>
-          <div style="font-size: 10px; margin-top: 4px">kod QR KSeF</div>
+      </div>
+    </article>`;
+  }
+
+  function renderPotwierdzenie(inv) {
+    const p = inv.payload || {};
+    const seller = p.seller || { nip: p.seller_nip, name: (S.clients.find(c => c.nip === p.seller_nip) || {}).display_name || S.tenant?.company_name };
+    const buyer = p.buyer || {};
+    const number = invoiceNumber(inv);
+    const { gross } = invoiceTotals(p.items || []);
+
+    const invoiceQrUrl = inv.ksef_number
+      ? `https://ksef.mf.gov.pl/web/verify/${inv.ksef_number}`
+      : `https://ksef-test.mf.gov.pl/web/verify/pending/${inv.id || "draft"}`;
+    const issuerQrUrl = `https://ksef.mf.gov.pl/web/issuer/${seller?.nip || p.seller_nip || "unknown"}`;
+
+    const qr1 = qrDataUrl(invoiceQrUrl);
+    const qr2 = qrDataUrl(issuerQrUrl);
+
+    const sellerAddr = addressLines(seller);
+    const buyerAddr = addressLines(buyer);
+
+    const addrBlock = (lines) => lines.length
+      ? `<div class="line"><b>Adres:</b> ${esc(lines[0])}</div>`
+        + (lines[1] ? `<div class="line addr-indent">${esc(lines[1])}</div>` : "")
+      : "";
+
+    const currencySymbol = p.currency === "PLN" ? "zł" : (p.currency || "zł");
+
+    return `
+    <section class="potw">
+      <h2>POTWIERDZENIE TRANSAKCJI</h2>
+      <div class="subtitle">do faktury nr ${esc(number)}</div>
+
+      <div class="parties">
+        <div>
+          <h4>Dane sprzedawcy</h4>
+          <div class="line"><b>NIP:</b> ${esc(seller?.nip || p.seller_nip || "—")}</div>
+          <div class="line"><b>Nazwa:</b> ${esc(seller?.name || "—")}</div>
+          ${addrBlock(sellerAddr)}
+        </div>
+        <div>
+          <h4>Dane nabywcy</h4>
+          <div class="line"><b>NIP:</b> ${esc(buyer?.nip || "—")}</div>
+          <div class="line"><b>Nazwa:</b> ${esc(buyer?.name || "—")}</div>
+          ${addrBlock(buyerAddr)}
         </div>
       </div>
-    </article>
-    `;
+
+      <div class="totalline">
+        Kwota należności ogółem: <span class="amount">${fmtNum(gross)} ${esc(currencySymbol)}</span>
+      </div>
+
+      <div class="qrs">
+        <div>
+          <div class="qrlabel">Sprawdź fakturę w KSeF:</div>
+          <div class="qr"><img src="${qr1}" alt="QR: sprawdź fakturę"></div>
+        </div>
+        <div>
+          <div class="qrlabel">Zweryfikuj wystawcę faktury:</div>
+          <div class="qr"><img src="${qr2}" alt="QR: zweryfikuj wystawcę"></div>
+        </div>
+      </div>
+
+      <div class="brand">Krajowy System <b>e-Faktur</b></div>
+    </section>`;
   }
 
   // ---------- lifecycle ----------
@@ -592,7 +729,7 @@
     await loadTenant();
     await loadClients();
     await loadInvoices();
-    renderTenant();  // re-render with loaded data (uses client count)
+    renderTenant();
   }
 
   updateSignoutVisibility();
