@@ -1,7 +1,6 @@
 """Tenant (biuro rachunkowe) endpoints: signup, me, API keys."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,10 +8,9 @@ from app.api.v1.schemas import ApiKeyCreated, TenantPublic, TenantSignupRequest
 from app.core.db import get_db
 from app.core.security import AuthedTenant, generate_api_key, require_api_key
 from app.models import ApiKey, Tenant
+from app.services.passwords import hash_password
 
 router = APIRouter()
-
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @router.post("/signup", response_model=ApiKeyCreated, status_code=status.HTTP_201_CREATED)
@@ -29,7 +27,7 @@ async def signup(
 
     tenant = Tenant(
         email=body.email,
-        password_hash=_pwd.hash(body.password),
+        password_hash=hash_password(body.password),
         company_name=body.company_name,
         nip=body.nip,
     )
