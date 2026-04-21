@@ -60,7 +60,11 @@ class ClientConnectRequest(BaseModel):
 class InvoicePartyIn(BaseModel):
     nip: str = Field(pattern=r"^\d{10}$")
     name: str | None = None
-    # Extend with address fields as FA(3) requires — expanded in Week 1 day 5-7.
+    # Address (all optional; required in final FA(3) XML, not for playground).
+    street: str | None = None               # e.g. "ul. Szara 5"
+    postal_code: str | None = None          # e.g. "11-111"
+    city: str | None = None                 # e.g. "Warszawa"
+    country: str = Field(default="PL", pattern=r"^[A-Z]{2}$")
 
 
 class InvoiceItemIn(BaseModel):
@@ -72,11 +76,13 @@ class InvoiceItemIn(BaseModel):
 
 class InvoiceCreateRequest(BaseModel):
     seller_nip: str = Field(pattern=r"^\d{10}$")
+    seller: InvoicePartyIn | None = None    # full seller details (must match seller_nip)
     buyer: InvoicePartyIn
     items: list[InvoiceItemIn]
     issue_date: datetime
+    invoice_number: str | None = None       # human-readable, e.g. "FV/1/04/2026"
     currency: str = Field(default="PLN", pattern=r"^[A-Z]{3}$")
-    external_reference: str | None = None  # your own ID for idempotency
+    external_reference: str | None = None   # your own ID for idempotency
 
 
 class InvoicePublic(BaseModel):
